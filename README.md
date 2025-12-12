@@ -1,147 +1,83 @@
-# Price-Optimization-Web-Application
----
+# Retail Analytics & Price Optimization Platform
 
-A web application that uses data-driven methods to help businesses determine optimal pricing strategies that maximize revenue while balancing customer demand and competitiveness. 
+A High-Fidelity Multi-Page Web Application for Retail Intelligence, Pricing Simulation, and Inventory Management.
 
-##  Features
+## 🚀 Features
 
--  **Interactive Web UI** to visualize pricing results
--  **Machine Learning / Statistical Models** for price prediction
--  **Demand & Revenue Analysis**
--  **API Endpoints** for model inference and data processing
--  **Real-time or Batch Processing** of sales data  
+*   **📊 Sales Analytics Dashboard**: Interactive visualization of revenue trends, brand performance, and seasonal impact.
+*   **💰 Price Optimization Engine**: ML-powered simulation to predict demand and revenue curves at different price points.
+*   **📦 Inventory Management**: Real-time stock monitoring with visual alerts for low-stock and overstocked items.
+*   **🔄 Returns Intelligence**: Predictive analysis of return risks and breakdown of return reasons (Size, Quality, etc.).
+*   **📉 Synthetic Data Generator**: Built-in engine to generate realistic retail transaction data matching industry schemas.
 
+## 🛠️ Tech Stack
 
+*   **Frontend**: Dash (React-based), Dash Bootstrap Components
+*   **Backend**: Python, Flask (underlying Dash)
+*   **Machine Learning**: Scikit-Learn (Random Forest Regressors/Classifiers)
+*   **Data Processing**: Pandas, NumPy
+*   **Visualization**: Plotly Interactive Charts
 
----
+## 🏗️ Architecture
 
-##  Table of Contents
+The application is structured as a **Multi-Page App (MPA)**:
 
-- [About](#about)  
-- [Installation](#installation)  
-- [Usage](#usage)  
-- [Project Structure](#project-structure)  
-- [API Endpoints](#api-endpoints)  
-- [Contributing](#contributing)  
-- [License](#license)
+*   `app/app.py`: Main entry point and layout container.
+*   `app/pages/`: Individual page modules.
+    *   `home.py`: Landing page with KPIs.
+    *   `analytics.py`: Sales deep-dives.
+    *   `price_optimizer.py`: The core ML pricing tool.
+    *   `returns.py`, `inventory.py`, `dataset.py`: Dedicated functional modules.
+*   `app/model.py`: Manages training and inference for Demand and Return models.
+*   `app/data_generation.py`: Creates the synthetic dataset.
 
----
+## 📦 Installation
 
-##  About
+1.  **Clone the Repository**
+    ```bash
+    git clone https://github.com/Hareesh1/Price-Optimization-Web-Application.git
+    cd Price-Optimization-Web-Application
+    ```
 
-Price optimization refers to the data-driven process of finding the ideal price that balances customer demand with revenue goals. It considers factors such as historical sales, market trends, competition, and elasticity of demand to suggest pricing that unlocks the best business outcomes. :contentReference[oaicite:1]{index=1}
+2.  **Install Dependencies**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-This project implements a web-based system where users can:
+3.  **Generate Data**
+    (Optional: data is usually generated automatically, but you can force a refresh)
+    ```bash
+    python app/data_generation.py
+    ```
 
-1. Upload or connect pricing & sales data  
-2. Run optimization models  
-3. View results with analytics dashboards
+4.  **Run the Application**
+    ```bash
+    python -m app.app
+    ```
+    Access the dashboard at `http://127.0.0.1:8050/`.
 
----
+## ☁️ Deployment
 
-##  Installation
+### AWS App Runner (Recommended)
 
-### Requirements
+This project includes a production-ready `Dockerfile`.
 
-Make sure you have the following installed:
+1.  **Build** the Docker image:
+    ```bash
+    docker build -t retail-app .
+    ```
+2.  **Run** container locally (test):
+    ```bash
+    docker run -p 8080:8080 retail-app
+    ```
+3.  **Deploy** to AWS App Runner using the provided `Dockerfile`.
 
-- Python 3.8+  
-- Node.js / npm (if you have a frontend)  
-- Docker (optional)
+*See `aws_deployment_guide.md` in the artifacts for full cloud deployment instructions.*
 
-### Local Setup
+## 🤝 Contributing
 
-1. **Clone the repo**
-   ```bash
-   git clone https://github.com/Hareesh1/Price-Optimization-Web-Application.git
-   cd Price-Optimization-Web-Application
+Contributions are welcome! Please fork the repository and submit a pull request.
 
+## 📄 License
 
-2. **Install backend dependencies**
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Install frontend dependencies** *(if applicable)*
-
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-4. **Run locally**
-
-   ```bash
-   # Backend
-   python app.py
-
-   # Frontend
-   npm start
-   ```
-
-
----
-
-##  Usage
-
-1. Open your browser at `http://localhost:5000` (or configured port)
-2. Upload your dataset (CSV/JSON)
-3. Choose model parameters for optimization
-4. View graphs & suggested prices
-
-
----
-
-##  Project Structure
-
-```
-Price-Optimization-Web-Application/
-├── backend/
-│   ├── app.py
-│   ├── models/
-│   ├── utils/
-│   └── requirements.txt
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   └── package.json
-├── data/
-├── tests/
-└── README.md
-```
-
-
-
----
-
-##  API Endpoints
-
-| Route              | Method | Description                |
-| ------------------ | ------ | -------------------------- |
-| `/api/prices`      | POST   | Run price optimization     |
-| `/api/data/upload` | POST   | Upload dataset             |
-| `/api/results`     | GET    | Fetch optimization results |
-
-*(Fill in actual routes and parameters.)*
-
----
-
-## Contributing
-
-We welcome contributions! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Open a Pull Request
-
----
-
-##  License
-
-This project is licensed under the MIT License. 
-
----
-
-If you want, paste specifics (like your main languages, frameworks, and how users run your app) and I’ll tailor this **exactly** to your repo.
+MIT License.
