@@ -1,89 +1,135 @@
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error, r2_score
 
-class PriceOptimModel:
-    def __init__(self, product_name):
-        self.product_name = product_name
-        self.model = RandomForestRegressor(n_estimators=100, random_state=42)
-        # Using Linear Regression for explicit elasticity calculation if needed
-        self.elasticity_model = LinearRegression()
-        self.metrics = {}
+class RetailModelManager:
+    def __init__(self):
+        self.demand_model = RandomForestRegressor(n_estimators=50, random_state=42)
+        self.return_model = RandomForestClassifier(n_estimators=50, random_state=42)
+        self.encoders = {}
+        self.is_trained = False
         
+    def prepare_features(self, df):
+        """
+        Encodes categorical features for ML.
+        """
+        data = df.copy()
+        
+        # Features to use
+        categorical_cols = ['brand', 'category', 'season', 'size', 'color']
+        numerical_cols = ['current_price', 'markdown_percentage', 'original_price']
+        
+        # Fill missing sizes (e.g. for accessories)
+        data['size'] = data['size'].fillna('NA')
+        
+        # Encode
+        for col in categorical_cols:
+            le = LabelEncoder()
+            data[col] = le.fit_transform(data[col])
+            self.encoders[col] = le
+            
+        return data, categorical_cols + numerical_cols
+
     def train(self, df):
         """
-        Trains the demand forecasting model for a specific product.
+        Trains both demand and return models.
         """
-        # Filter for this product
-        product_data = df[df['Product'] == self.product_name].copy()
+        # 1. Demand Model (Predicting Sales Volume? Or likelihood of sale?)
+        # Since our data is Transactional, we aggregate to simulate "Units Sold per Product/Day"
+        # For simplicity in this demo, let's predict "Daily Units Sold" based on attributes + price.
         
-        if product_data.empty:
-            raise ValueError(f"No data found for product: {self.product_name}")
-            
-        features = ['Price', 'IsWeekend', 'Month']
-        target = 'Quantity'
+        # Aggregate by Date + Product
+        daily_sales = df.groupby(['purchase_date', 'product_id', 'brand', 'category', 'season', 'current_price', 'markdown_percentage', 'original_price', 'size', 'color']).size().reset_index(name='units_sold')
         
-        X = product_data[features]
-        y = product_data[target]
+        # For 'Return', we use the transactional data directly (probability of this item being returned)
         
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        # Train Demand Model
+        X_demand_df, features = self.prepare_features(daily_sales)
+        X = X_demand_df[features]
+        y = daily_sales['units_sold']
         
-        self.model.fit(X_train, y_train)
+        self.demand_model.fit(X, y)
         
-        # Calculate metrics
-        predictions = self.model.predict(X_test)
-        self.metrics['mae'] = mean_absolute_error(y_test, predictions)
-        self.metrics['r2'] = r2_score(y_test, predictions)
+        # Train Return Model
+        # Target: is_returned (boolean)
+        # Use main transaction df
+        X_return_df, features_ret = self.prepare_features(df)
+        X_ret = X_return_df[features] # Same features
+        y_ret = df['is_returned'].astype(int)
         
-        # Train simple log-log model for elasticity estimation
-        # ln(Q) = alpha + beta * ln(P)
-        # We handle zero quantities by adding small epsilon or filtering
-        valid_idx = (y_train > 0) & (X_train['Price'] > 0)
-        if valid_idx.sum() > 10:
-            log_q = np.log(y_train[valid_idx])
-            log_p = np.log(X_train.loc[valid_idx, 'Price']).values.reshape(-1, 1)
-            self.elasticity_model.fit(log_p, log_q)
-            self.metrics['elasticity'] = self.elasticity_model.coef_[0]
-        else:
-            self.metrics['elasticity'] = 0.0
-            
-        return self.metrics
+        self.return_model.fit(X_ret, y_ret)
+        
+        self.is_trained = True
+        return self.demand_model.feature_importances_
 
-    def predict_scenario(self, price_range, fixed_features=None):
+    def predict_optimization(self, product_row, price_range):
         """
-        Simulate demand + revenue + profit over a range of prices.
-        fixed_features should be a dict like {'IsWeekend': 0, 'Month': 5}
-        Defaults to mean/mode if not provided.
+        Simulate demand and revenue for a range of prices for a specific product context.
+        product_row: dict containing 'brand', 'category', 'season', 'size', 'color', 'original_price'
         """
-        if fixed_features is None:
-            # Default to "Average Day"
-            fixed_features = {'IsWeekend': 0, 'Month': 6} # e.g. June weekday
+        if not self.is_trained:
+            raise Exception("Model not trained")
             
-        prices = np.array(price_range)
-        n = len(prices)
+        results = []
         
-        # Prepare input Data
-        X_sim = pd.DataFrame({
-            'Price': prices,
-            'IsWeekend': [fixed_features.get('IsWeekend', 0)] * n,
-            'Month': [fixed_features.get('Month', 6)] * n
-        })
+        # Prepare base input vector
+        # We need to encode the input 'product_row' using saved encoders
+        input_data = product_row.copy()
+        for col, le in self.encoders.items():
+            if col in input_data:
+                # Handle unseen labels carefully, or just try/except
+                try:
+                    input_data[col] = le.transform([input_data[col]])[0]
+                except:
+                    input_data[col] = 0 # Fallback
         
-        predicted_demand = self.model.predict(X_sim)
-        
-        # Floor demand at 0
-        predicted_demand = np.maximum(predicted_demand, 0)
-        
-        results = pd.DataFrame({
-            'Price': prices,
-            'Predicted_Demand': predicted_demand
-        })
-        
-        # Calculate Revenue and Profit (assuming constant cost for simplicity or passed in)
-        # To calculate profit we need cost. Getting avg cost from data might be needed 
-        # but here we'll take it as an argument or just estimate
-        
-        return results
+        for price in price_range:
+            # Calculate markdown
+            orig = input_data['original_price']
+            markdown = (orig - price) / orig if orig > 0 else 0
+            
+            # Construct feature vector
+            # Order must match training: ['brand', 'category', 'season', 'size', 'color', 'current_price', 'markdown_percentage', 'original_price']
+            features = [
+                input_data['brand'],
+                input_data['category'],
+                input_data['season'],
+                input_data['size'],
+                input_data['color'],
+                price,
+                markdown,
+                input_data['original_price']
+            ]
+            
+            # Predict Demand (Units)
+            pred_demand = self.demand_model.predict([features])[0]
+            # Predict Return Prob
+            pred_return_prob = self.return_model.predict_proba([features])[0][1]
+            
+            # Heuristic adjustment: Demand shouldn't be effectively zero near 0 price, but let's trust the forest
+            # Smooth it a bit
+            pred_demand = max(0.01, pred_demand)
+            
+            revenue = price * pred_demand
+            adj_revenue = revenue * (1 - pred_return_prob)
+            
+            results.append({
+                'price': price,
+                'demand': pred_demand,
+                'revenue': revenue,
+                'return_prob': pred_return_prob,
+                'adjusted_revenue': adj_revenue
+            })
+            
+        return pd.DataFrame(results)
+
+    def predict_return_risk(self, product_context):
+        """
+        Predict return probability for a single item context.
+        """
+        if not self.is_trained: return 0.0
+        # ... logic similar to above ...
+        # Simplified for now
+        return 0.15 # Placeholder
